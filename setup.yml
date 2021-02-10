@@ -1,0 +1,48 @@
+---
+- name: Setup the Project
+  hosts: all
+  gather_facts: false
+  become: yes
+  vars:
+    nodejs: 14.15.0
+    Dashboard: /home/rachit/StackingDashboard
+  vars_files:
+    - "vars/localhost.yml"
+  tasks:
+    - name: Update System
+      apt:
+        name: "*"
+        state: "latest"
+    - name: Install nodejs
+      apt: name=nodejs update_cache=yes
+    - name: Installing npm
+      apt: name=npm update_cache=yes
+    - name: Git
+      git:
+        repo: "https://github.com/StackedSats/Stacking-Dashboard"
+        dest: "{ { Dashboard } }"
+    - name: Install dependencies
+      command: chdir={{Dashboard}} npm install
+      ignore_errors: yes
+    - name: .env copy
+      copy:
+        src: "{{playbook_dir}}/env"
+        dest: "{ { Dashboard } }"
+    - name: Build frontend
+      command: chdir={{Dashboard}} npm run build
+
+    - name: Download server code
+      git:
+        repo: "https://github.com/StackedSats/Stacking-Server"
+        dest: /home/rachit/StackingServer
+    - name: Install server dependencies
+      command: chdir=/home/rachit/StackingServer npm install
+      ignore_errors: yes
+    - name: move build into server
+      command: mv {{Dashboard}} /home/rachit/StackingServer
+    - name: .env copy
+      copy:
+        src: "{{playbook_dir}}/env"
+        dest: "{ { Dashboard } }"
+    - name: spin up the server at port 4500
+      command: chdir=/home/rachit/StackingServer pm2 start index.js
